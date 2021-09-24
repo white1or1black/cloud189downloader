@@ -40,7 +40,6 @@ class Cloud189 {
 
     this.browserConfig = {
       headless: false,
-      devtools: true,
       defaultViewport: null,
     };
   }
