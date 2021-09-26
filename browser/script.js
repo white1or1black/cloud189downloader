@@ -4,6 +4,9 @@ const SECONDS_PER_DOWNLOAD = 2;
 function checkDownloadBtn() {
   return !!$(DOWNLOAD_BTN_SELECTOR).length;
 }
+function checkCancelBtn() {
+  return !!$(DOWNLOAD_CANCEL_BTN_SELECTOR).length;
+}
 
 function newElement(tag, attributes, inner) {
   const newEle = document.createElement(tag);
@@ -20,7 +23,7 @@ function addLoadedTag() {
   );
 }
 
-async function addDownloadBtn() {
+async function addDownloadBtn(parent) {
   if (checkDownloadBtn()) return;
 
   const dlEle = newElement('div', {
@@ -36,10 +39,38 @@ async function addDownloadBtn() {
     )
   });
 
-  $('.info-detail').after(dlEle);
+  parent.appendChild(dlEle);
+}
+
+async function addCancelBtn(parent) {
+  if (checkCancelBtn()) return;
+
+  const cancelEle = newElement('div', {
+    id: ex(DOWNLOAD_CANCEL_BTN_SELECTOR),
+    class: 'download-btn',
+  }, '<button>cancel</button>');
+
+  cancelEle.addEventListener('click', () => {
+    document.body.appendChild(
+      newElement('div', {
+        id: ex(DOWNLOAD_CANCEL_TASK_SELECTOR),
+      })
+    )
+  });
+
+  parent.appendChild(cancelEle);
+}
+async function addDownloadHelperBoard() {
+  const board = newElement('div', { class: 'download-helper-board' }, `
+    <div class="helper-board-title">Download Helper Board</div>
+  `);
+  document.body.appendChild(board);
+
+  await addDownloadBtn(board);
+  await addCancelBtn(board);
 }
 
 $(document).ready(async function () {
-  await addDownloadBtn();
+  await addDownloadHelperBoard();
   await addLoadedTag();
 });

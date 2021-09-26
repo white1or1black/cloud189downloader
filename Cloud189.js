@@ -2,6 +2,8 @@ const { requireEsModule, removeImportExport } = require('./lib/requireEsModule')
 const { sleep, ex } = requireEsModule('./lib/vendor');
 const {
   DOWNLOAD_BTN_SELECTOR,
+  DOWNLOAD_CANCEL_TASK_SELECTOR,
+  DOWNLOAD_CANCEL_BTN_SELECTOR,
   DOWNLOAD_TASK_SELECTOR,
   RESOURCE_LOAD_SELECTOR,
 } = requireEsModule('./constants');
@@ -16,7 +18,7 @@ const STATE_CANCELED = 'canceled';
 const MAX_PROCESSING_NUM = 5;
 const MAX_REQ_TIMEOUT = 10;
 
-const SLEEP_SEC_PER_ROUND = 3;
+const SLEEP_SEC_PER_ROUND = 0.5;
 
 const STATE_NO = 1;
 const STATE_REQ = 2;
@@ -159,8 +161,8 @@ class Cloud189 {
 
   async processingDownload() {
     let ele = null;
-    if (this.hasDlReq() && this.reqTimeout <= MAX_REQ_TIMEOUT * 2) {
-      if (++this.reqTimeout <= MAX_REQ_TIMEOUT) {
+    if (this.hasDlReq() && this.reqTimeout * SLEEP_SEC_PER_ROUND <= MAX_REQ_TIMEOUT * 2) {
+      if (++this.reqTimeout * SLEEP_SEC_PER_ROUND <= MAX_REQ_TIMEOUT) {
         console.log('Last download item is not started.');
         return;
       }
@@ -183,16 +185,29 @@ class Cloud189 {
 
     this.isDlReq = true;
     try {
-      const dlItem = await ele.$('.file-item');
+      const dlItem = await ele.$('.file-item-time');
       await dlItem.click();
-      const dlIcon = await dlItem.$('.file-item-ope-item-download');
+      const dlIcon = await ele.$('.file-item .file-item-ope-item-download');
       if (dlIcon) await dlIcon.click();
+      else {
+        // No download icon, ignore it.
+        this.isDlReq = false;
+      }
     } catch (err) {
       console.log(err.message);
     }
   }
 
+  async cancelDownload() {
+    this.dlQueue = [];
+  }
+
   async downloadStatusHandler() {
+    if (await this.cancelDownloadHandler()) {
+      await this.cancelDownload();
+      return;
+    }
+
     console.log(`
       Waiting for download response: ${this.isDlReq}
       Downloading: ${this.dlProcess.size}
@@ -204,15 +219,35 @@ class Cloud189 {
       return;
     }
 
-    const dlTask = await this.page.$(DOWNLOAD_TASK_SELECTOR);
-    if (!dlTask) return;
+    await this.downloadHandler();
+  }
 
-    await this.page.evaluate((selector) => {
-      const elements = document.querySelectorAll(selector)
-      elements.forEach(ele => ele.remove());
-    }, DOWNLOAD_TASK_SELECTOR);
+  async downloadHandler() {
+    if (
+      await this.page.$$eval(DOWNLOAD_TASK_SELECTOR, elements => {
+        if (elements && !!elements.length) {
+          alert('Starting download.');
+          elements.forEach(ele => ele.remove());
+          return true;
+        } else {
+          return false;
+        }
+      })
+    ) {
+      await this.downloadFiles();
+    } 
+  }
 
-    await this.downloadFiles();
+  async cancelDownloadHandler() {
+    return await this.page.$$eval(DOWNLOAD_CANCEL_TASK_SELECTOR, (elements) => {
+      if (elements && !!elements.length) {
+        alert('Canceling download.');
+        elements.forEach(ele => ele.remove());
+        return true;
+      } else {
+        return false;
+      }
+    });
   }
 
   /**
@@ -247,6 +282,11 @@ class Cloud189 {
         ${fs.readFileSync('./browser/script.js')};
         `
     });
+    try {
+      await this.page.waitForSelector(RESOURCE_LOAD_SELECTOR);
+    } catch (err) {
+      console.log(err.message);
+    }
   }
 
   async listen(cli, eventName, fn) {

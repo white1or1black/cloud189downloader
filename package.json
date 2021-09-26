@@ -4,7 +4,6 @@
   "description": "天翼云盘批量下载助手",
   "main": "index.js",
   "scripts": {
-    "build": "babel ./ --out-dir dist/",
     "test": "jest",
     "test:watch": "jest --watch --detectOpenHandles",
     "test:cov": "jest --coverage --force-exit --detectOpenHandles"
